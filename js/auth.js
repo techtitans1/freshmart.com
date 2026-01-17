@@ -1,3 +1,6 @@
+// ==================== FIREBASE AUTHENTICATION ====================
+// Complete Auth with Email/Password, Google Sign-in, Realtime Database
+
 // ==================== FIREBASE CONFIGURATION ====================
 const firebaseConfig = {
     apiKey: "AIzaSyDf4QSE3kw9HQD_ZWJ-DDZ8yN3hgRp4UaM",
@@ -17,89 +20,57 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ==================== CRITICAL FIX: COMPLETE SAVE USER FUNCTION ====================
+// REMOVED DUPLICATE PROVIDER - This was breaking the code
+
 async function saveUserToFirestore(user, provider, extraData = {}) {
-    try {
-        const userRef = db.collection("users").doc(user.uid);
-        const userDoc = await userRef.get();
+    const ref = db.collection("users").doc(user.uid);
+    const snap = await ref.get();
+
+    const baseData = {
+        uid: user.uid,
+        name: user.displayName || extraData.name || "User",
+        email: user.email,
+        photo: user.photoURL || "",
+        role: "user",
+        isNewUser: !snap.exists,
+        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (!snap.exists) {
+        await ref.set({
+            ...baseData,
+            providers: [provider],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            ...extraData
+        });
+    } else {
+        const updateData = {
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+            providers: firebase.firestore.FieldValue.arrayUnion(provider)
+        };
         
-        if (!userDoc.exists) {
-            // NEW USER - Create complete profile document
-            const newUserData = {
-                // Auth fields
-                uid: user.uid,
-                email: user.email || "",
-                emailVerified: user.emailVerified || false,
-                
-                // Profile fields (IMPORTANT - these are what profile page reads)
-                name: extraData.name || user.displayName || "",
-                phone: extraData.phone || "",
-                photoURL: extraData.photo || user.photoURL || "",
-                
-                // Address fields
-                address: extraData.address || "",
-                city: extraData.city || "",
-                state: extraData.state || "",
-                pincode: extraData.pincode || "",
-                
-                // Meta fields
-                provider: provider,
-                providers: [provider],
-                role: "user",
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            
-            await userRef.set(newUserData);
-            console.log("✅ New user profile created:", user.uid);
-            return { isNew: true, data: newUserData };
-            
-        } else {
-            // EXISTING USER - Update with merge
-            const updateData = {
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                providers: firebase.firestore.FieldValue.arrayUnion(provider)
-            };
-            
-            // Only update non-empty values
-            if (extraData.name) updateData.name = extraData.name;
-            if (extraData.phone) updateData.phone = extraData.phone;
-            if (extraData.address) updateData.address = extraData.address;
-            if (extraData.city) updateData.city = extraData.city;
-            if (extraData.state) updateData.state = extraData.state;
-            if (extraData.pincode) updateData.pincode = extraData.pincode;
-            if (extraData.photo || user.photoURL) updateData.photoURL = extraData.photo || user.photoURL;
-            if (user.displayName && !userDoc.data().name) updateData.name = user.displayName;
-            
-            await userRef.update(updateData);
-            console.log("✅ User profile updated:", user.uid);
-            return { isNew: false, data: { ...userDoc.data(), ...updateData } };
-        }
-    } catch (error) {
-        console.error("❌ Error saving to Firestore:", error);
-        throw error;
+        // Only update fields that have values
+        if (extraData.name) updateData.name = extraData.name;
+        if (extraData.phone) updateData.phone = extraData.phone;
+        if (extraData.address) updateData.address = extraData.address;
+        if (extraData.city) updateData.city = extraData.city;
+        if (extraData.state) updateData.state = extraData.state;
+        if (extraData.pincode) updateData.pincode = extraData.pincode;
+        if (user.photoURL) updateData.photo = user.photoURL;
+        
+        await ref.update(updateData);
     }
 }
 
-// Check if phone exists for another user
-async function isPhoneAlreadyExists(phone, excludeUid = null) {
-    if (!phone) return false;
-    
-    const snapshot = await db.collection("users")
+async function isPhoneAlreadyExists(phone, currentUid = null) {
+    const snapshot = await db
+        .collection("users")
         .where("phone", "==", phone)
         .get();
-    
-    if (snapshot.empty) return false;
-    
-    // Check if phone belongs to another user
-    return snapshot.docs.some(doc => doc.id !== excludeUid);
-}
 
-// Check if profile is complete
-function isProfileComplete(userData) {
-    return !!(userData && userData.phone && userData.address && userData.city && userData.pincode);
+    if (snapshot.empty) return false;
+
+    return snapshot.docs.some(doc => doc.id !== currentUid);
 }
 
 // ==================== STATE ====================
@@ -112,6 +83,7 @@ const $$ = sel => document.querySelectorAll(sel);
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', () => {
+    // Get redirect URL from query params
     const params = new URLSearchParams(window.location.search);
     redirectUrl = params.get('redirect');
     
@@ -124,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bindSignupEvents();
     }
     
+    // Common events
     bindCommonEvents();
 });
 
@@ -225,10 +198,10 @@ async function handleLogin(e) {
             : firebase.auth.Auth.Persistence.SESSION;
         
         await auth.setPersistence(persistence);
+        
         const userCredential = await auth.signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        // Save/Update user in Firestore (ensures profile data exists)
         await saveUserToFirestore(user, "password");
         
         hideLoading();
@@ -242,11 +215,10 @@ async function handleLogin(e) {
     }
 }
 
-// ==================== EMAIL/PASSWORD SIGNUP - FIXED ====================
+// ==================== EMAIL/PASSWORD SIGNUP ====================
 async function handleSignup(e) {
     e.preventDefault();
     
-    // Get ALL form values
     const fullName = $('fullName')?.value.trim();
     const email = $('email')?.value.trim();
     const phone = $('phone')?.value.trim();
@@ -254,11 +226,10 @@ async function handleSignup(e) {
     const confirmPassword = $('confirmPassword')?.value;
     const address = $('address')?.value.trim();
     const city = $('city')?.value.trim();
-    const state = $('state')?.value.trim() || "";  // Optional
+    const state = $('state')?.value.trim();
     const pincode = $('pincode')?.value.trim();
     const termsChecked = $('termsCheck')?.checked;
     
-    // Validation
     if (!fullName || !email || !phone || !password || !address || !city || !pincode) {
         showMessage('Please fill in all required fields', 'error');
         return;
@@ -297,46 +268,29 @@ async function handleSignup(e) {
     showLoading('Creating your account...');
 
     try {
-        // Check phone uniqueness FIRST
-        const phoneExists = await isPhoneAlreadyExists(phone);
-        if (phoneExists) {
-            hideLoading();
-            showMessage("This phone number is already registered.", "error");
-            return;
-        }
-
-        // Create Firebase Auth account
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        console.log("✅ Auth account created for:", user.email);
-
-        // Update display name in Firebase Auth
-        await user.updateProfile({ 
-            displayName: fullName 
-        });
-        
-        // CRITICAL: Save ALL profile data to Firestore
-        const profileData = {
-            name: fullName,
-            phone: phone,
-            address: address,
-            city: city,
-            state: state,
-            pincode: pincode
-        };
-        
-        const result = await saveUserToFirestore(user, "password", profileData);
-        
-        console.log("✅ Complete profile saved to Firestore:", result);
-        
-        // Verify data was saved
-        const verification = await db.collection("users").doc(user.uid).get();
-        if (verification.exists) {
-            console.log("✅ Verified - Profile data in Firestore:", verification.data());
-        } else {
-            console.error("❌ WARNING: Profile data not found in Firestore!");
+        // Phone uniqueness check (AFTER auth)
+        const phoneExists = await isPhoneAlreadyExists(phone, user.uid);
+        if (phoneExists) {
+            hideLoading();
+            showMessage("This phone number is already registered.", "error");
+            // Rollback auth user
+            await user.delete();
+            return;
         }
+
+        await user.updateProfile({ displayName: fullName });
+        
+        await saveUserToFirestore(user, "password", {
+            name: fullName,
+            phone,
+            address,
+            city,
+            state,
+            pincode
+        });
         
         hideLoading();
         toast('Account created successfully!', 'success');
@@ -345,194 +299,82 @@ async function handleSignup(e) {
         
     } catch (error) {
         hideLoading();
-        console.error("❌ Signup error:", error);
-        
-        // If user was created but profile save failed, delete the auth account
-        if (error.code !== 'auth/email-already-in-use' && auth.currentUser) {
-            await auth.currentUser.delete();
-            console.log("⚠️ Rolled back auth account due to profile save failure");
-        }
-        
         handleAuthError(error);
     }
 }
 
-// ==================== GOOGLE AUTHENTICATION - FIXED ====================
+// ==================== GOOGLE AUTHENTICATION ====================
 async function handleGoogleAuth() {
-    console.log("🔵 Google Auth started");
     showLoading('Connecting to Google...');
     
     try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.addScope('profile');
-        provider.addScope('email');
-        
+        const provider = new firebase.auth.GoogleAuthProvider(); // MOVED INSIDE FUNCTION
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
         const isNewUser = result.additionalUserInfo?.isNewUser;
 
-        console.log("✅ Google sign-in successful:", user.email);
-        console.log("🆕 Is new user:", isNewUser);
-
         if (isNewUser) {
-            // New Google user - save basic info first
-            await saveUserToFirestore(user, "google", {
-                name: user.displayName,
-                photo: user.photoURL
-            });
-            
-            // Show complete profile modal
             pendingGoogleUser = user;
-            hideLoading();
+            hideLoading(); // FIX: Hide loading before showing modal
             showCompleteProfileModal(user);
-            
         } else {
-            // Existing user - check profile completeness
-            const userDoc = await db.collection("users").doc(user.uid).get();
-            
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                
-                if (!isProfileComplete(userData)) {
-                    // Profile incomplete - show modal
-                    pendingGoogleUser = user;
-                    hideLoading();
-                    showCompleteProfileModal(user);
-                } else {
-                    // Profile complete - just update last login
-                    await saveUserToFirestore(user, "google");
-                    hideLoading();
-                    toast('Login successful!', 'success');
-                    setTimeout(handleRedirect, 1000);
-                }
-            } else {
-                // No Firestore document - create one and show modal
-                await saveUserToFirestore(user, "google", {
-                    name: user.displayName,
-                    photo: user.photoURL
-                });
-                
-                pendingGoogleUser = user;
-                hideLoading();
-                showCompleteProfileModal(user);
-            }
+            // Existing user → just update lastLogin
+            await saveUserToFirestore(user, "google");
+            hideLoading();
+            toast('Login successful!', 'success');
+            setTimeout(handleRedirect, 1000);
         }
 
     } catch (error) {
         hideLoading();
-        console.error("❌ Google Auth Error:", error);
         
+        // ACCOUNT LINKING
         if (error.code === 'auth/account-exists-with-different-credential') {
-            await handleAccountLinking(error);
-        } else if (error.code === 'auth/popup-closed-by-user') {
-            toast('Sign-in cancelled', 'warning');
-        } else if (error.code === 'auth/popup-blocked') {
-            toast('Popup blocked! Please allow popups.', 'error');
-            tryRedirectAuth();
+            try {
+                await linkGoogleAccount(error);
+            } catch (linkError) {
+                handleAuthError(linkError);
+            }
         } else {
             handleAuthError(error);
         }
     }
 }
 
-// Fallback redirect auth
-async function tryRedirectAuth() {
-    try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithRedirect(provider);
-    } catch (error) {
-        handleAuthError(error);
-    }
-}
-
-// Handle redirect result
-auth.getRedirectResult().then(async result => {
-    if (result.user) {
-        const user = result.user;
-        const isNewUser = result.additionalUserInfo?.isNewUser;
-        
-        if (isNewUser) {
-            await saveUserToFirestore(user, "google", {
-                name: user.displayName,
-                photo: user.photoURL
-            });
-            pendingGoogleUser = user;
-            showCompleteProfileModal(user);
-        } else {
-            const userDoc = await db.collection("users").doc(user.uid).get();
-            const userData = userDoc.data();
-            
-            if (!isProfileComplete(userData)) {
-                pendingGoogleUser = user;
-                showCompleteProfileModal(user);
-            } else {
-                await saveUserToFirestore(user, "google");
-                toast('Login successful!', 'success');
-                setTimeout(handleRedirect, 1000);
-            }
-        }
-    }
-}).catch(error => {
-    if (error.code) {
-        console.error("Redirect error:", error);
-    }
-});
-
-// Handle account linking
-async function handleAccountLinking(error) {
+async function linkGoogleAccount(error) {
     const email = error.customData?.email || error.email;
-    const pendingCred = firebase.auth.GoogleAuthProvider.credentialFromError(error);
+    const pendingCred = error.credential;
 
     const password = prompt(
-        `Email "${email}" already exists with password.\nEnter password to link Google:`
+        "This email already exists. Enter your password to link Google login."
     );
 
     if (!password) {
-        toast('Account linking cancelled', 'warning');
-        return;
+        throw new Error('Password required for account linking');
     }
 
-    try {
-        showLoading('Linking accounts...');
-        const userCred = await auth.signInWithEmailAndPassword(email, password);
-        await userCred.user.linkWithCredential(pendingCred);
-        await saveUserToFirestore(userCred.user, "google");
+    const userCred = await auth.signInWithEmailAndPassword(email, password);
+    await userCred.user.linkWithCredential(pendingCred);
+    await saveUserToFirestore(userCred.user, "google");
 
-        hideLoading();
-        toast('Google account linked!', 'success');
-        setTimeout(handleRedirect, 1000);
-    } catch (linkError) {
-        hideLoading();
-        handleAuthError(linkError);
-    }
+    toast('Google account linked successfully!', 'success');
+    setTimeout(handleRedirect, 1000);
 }
 
-// ==================== COMPLETE PROFILE (Google Users) - FIXED ====================
+// ==================== COMPLETE PROFILE (Google Users) ====================
 function showCompleteProfileModal(user) {
-    console.log("📋 Showing complete profile modal for:", user.email);
-    
     const modal = $('completeProfileModal');
     const photo = $('googleUserPhoto');
     const name = $('googleUserName');
     
-    if (photo) {
-        photo.src = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=4CAF50&color=fff&size=80`;
-    }
+    if (photo) photo.src = user.photoURL || 'https://via.placeholder.com/80?text=User';
+    if (name) name.textContent = `Welcome, ${user.displayName || 'User'}!`;
     
-    if (name) {
-        name.textContent = `Welcome, ${user.displayName || 'User'}!`;
-    }
-    
-    if (modal) {
-        modal.classList.add('active');
-    } else {
-        console.error("❌ Complete profile modal not found!");
-    }
+    modal?.classList.add('active');
 }
 
 async function handleCompleteProfile(e) {
     e.preventDefault();
-    console.log("📝 Completing Google user profile...");
     
     if (!pendingGoogleUser) {
         showMessage('Session expired. Please try again.', 'error');
@@ -543,9 +385,8 @@ async function handleCompleteProfile(e) {
     const address = $('profileAddress')?.value.trim();
     const city = $('profileCity')?.value.trim();
     const pincode = $('profilePincode')?.value.trim();
-    const state = $('profileState')?.value.trim() || "";
+    const state = $('profileState')?.value.trim();
     
-    // Validation
     if (!phone || phone.length !== 10) {
         toast('Please enter a valid 10-digit phone number', 'error');
         return;
@@ -569,7 +410,9 @@ async function handleCompleteProfile(e) {
     showLoading('Saving your profile...');
 
     try {
-        // Check phone uniqueness
+        const user = pendingGoogleUser;
+        
+        // Phone uniqueness check (exclude current user)
         const phoneExists = await isPhoneAlreadyExists(phone, pendingGoogleUser.uid);
         if (phoneExists) {
             hideLoading();
@@ -577,25 +420,13 @@ async function handleCompleteProfile(e) {
             return;
         }
 
-        // Update Firestore with complete profile
-        const userRef = db.collection("users").doc(pendingGoogleUser.uid);
-        
-        const updateData = {
-            phone: phone,
-            address: address,
-            city: city,
-            state: state,
-            pincode: pincode,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        await userRef.update(updateData);
-        
-        console.log("✅ Profile completed for Google user:", pendingGoogleUser.uid);
-        
-        // Verify the update
-        const verification = await userRef.get();
-        console.log("✅ Verified profile data:", verification.data());
+        await saveUserToFirestore(user, "google", {
+            phone,
+            address,
+            city,
+            state,
+            pincode
+        });
         
         pendingGoogleUser = null;
         $('completeProfileModal')?.classList.remove('active');
@@ -607,7 +438,7 @@ async function handleCompleteProfile(e) {
         
     } catch (error) {
         hideLoading();
-        console.error('❌ Profile completion error:', error);
+        console.error('Profile completion error:', error);
         toast('Failed to save profile. Please try again.', 'error');
     }
 }
@@ -737,12 +568,6 @@ function handleAuthError(error) {
         case 'auth/network-request-failed':
             message = 'Network error. Check your connection.';
             break;
-        case 'auth/operation-not-allowed':
-            message = 'Google sign-in is not enabled. Please contact support.';
-            break;
-        case 'auth/unauthorized-domain':
-            message = 'This domain is not authorized. Please contact support.';
-            break;
     }
     
     showMessage(message, 'error');
@@ -751,8 +576,6 @@ function handleAuthError(error) {
 function handleRedirect() {
     if (redirectUrl === 'cart') {
         window.location.href = 'cart.html';
-    } else if (redirectUrl === 'profile') {
-        window.location.href = 'profile.html';
     } else {
         window.location.href = 'index.html';
     }
@@ -764,6 +587,7 @@ function showMessage(text, type) {
     const textEl = $('messageText');
     
     if (!messageEl || !textEl) {
+        // Fallback to toast if message elements don't exist
         toast(text, type);
         return;
     }
@@ -783,6 +607,7 @@ function toast(msg, type = 'success') {
     const iconEl = $('toastIcon');
     
     if (!toastEl) {
+        // Fallback to alert if toast doesn't exist
         console.log(`${type.toUpperCase()}: ${msg}`);
         return;
     }
@@ -816,39 +641,10 @@ function hideLoading() {
     if (loadingEl) loadingEl.classList.add('hidden');
 }
 
-// ==================== DEBUG: Verify Firestore Connection ====================
-async function verifyFirestoreConnection() {
-    try {
-        const testDoc = await db.collection("_test").doc("connection").get();
-        console.log("✅ Firestore connection verified");
-        return true;
-    } catch (error) {
-        console.error("❌ Firestore connection failed:", error);
-        return false;
-    }
-}
-
-// Run verification on load
-verifyFirestoreConnection();
+// ==================== EXPORTS ====================
+window.handleGoogleAuth = handleGoogleAuth;
+window.handleCompleteProfile = handleCompleteProfile;
 
 // ==================== CONSOLE ====================
 console.log('%c🔐 FreshMart Auth Ready!', 'color:#2e7d32;font-size:16px;font-weight:bold');
 console.log('%c📱 Firebase Auth + Firestore', 'color:#666');
-console.log('%c🔵 Google Sign-In: Enabled', 'color:#4285f4');
-
-// Debug: Check current auth state
-auth.onAuthStateChanged(user => {
-    if (user) {
-        console.log("👤 Current user:", user.email);
-        // Check if user has Firestore profile
-        db.collection("users").doc(user.uid).get().then(doc => {
-            if (doc.exists) {
-                console.log("✅ Profile data exists:", doc.data());
-            } else {
-                console.warn("⚠️ No profile data in Firestore for:", user.email);
-            }
-        });
-    } else {
-        console.log("👤 No user logged in");
-    }
-});
