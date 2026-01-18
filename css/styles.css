@@ -2503,7 +2503,202 @@ body {
 
 /* ===== FIX PRICE + ADD BUTTON OVERLAP (FORCE OVERRIDE) ===== */
 
+/* ==================== MOBILE PRODUCT CARD IMPROVEMENTS ==================== */
 
+/* Fix for product cards on mobile */
+@media (max-width: 768px) {
+    /* Make products grid take full width on mobile */
+    .products-section .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    /* Enlarge product cards */
+    .product-card {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 10px;
+        position: relative;
+        transition: var(--transition-normal);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* Make product images bigger on mobile */
+    .product-image {
+        width: 100%;
+        height: 140px !important;  /* Increased from 200px for better proportion */
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    
+    /* Adjust product info spacing */
+    .product-info {
+        padding: 10px 5px 5px;
+    }
+    
+    /* Make product name more readable */
+    .product-name {
+        font-size: 0.9rem !important;
+        font-weight: 600;
+        line-height: 1.3;
+        margin-bottom: 5px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    /* Make weight text more visible */
+    .product-weight {
+        font-size: 0.75rem !important;
+        color: var(--medium-gray);
+        margin-bottom: 8px;
+    }
+    
+    /* Improve price visibility */
+    .current-price {
+        font-size: 1.1rem !important;
+        font-weight: 700;
+    }
+    
+    .original-price {
+        font-size: 0.8rem !important;
+    }
+    
+    /* Make ADD button more tappable */
+    .add-to-cart-btn {
+        padding: 10px 20px !important;
+        font-size: 0.9rem !important;
+        min-width: 60px;
+    }
+    
+    /* Adjust badge size */
+    .product-badge {
+        font-size: 0.7rem !important;
+        padding: 4px 8px !important;
+        top: 10px;
+        left: 10px;
+    }
+    
+    /* Adjust wishlist button */
+    .wishlist-btn {
+        width: 32px;
+        height: 32px;
+        top: 8px;
+        right: 8px;
+    }
+    
+    .wishlist-btn i {
+        font-size: 0.9rem;
+    }
+}
+
+/* For very small screens (phones in portrait) */
+@media (max-width: 480px) {
+    /* Single column layout for very small screens */
+    .products-section .products-grid {
+        grid-template-columns: repeat(2, 1fr);  /* Keep 2 columns even on small phones */
+        gap: 12px;
+        padding: 12px;
+    }
+    
+    /* Further optimize for small screens */
+    .product-card {
+        padding: 8px;
+    }
+    
+    .product-image {
+        height: 120px !important;
+    }
+    
+    .product-name {
+        font-size: 0.85rem !important;
+    }
+    
+    .current-price {
+        font-size: 1rem !important;
+    }
+    
+    .add-to-cart-btn {
+        padding: 8px 16px !important;
+        font-size: 0.85rem !important;
+    }
+}
+
+/* For very small phones (below 380px) - optional single column */
+@media (max-width: 380px) {
+    .products-section .products-grid {
+        grid-template-columns: 1fr;  /* Single column for very small devices */
+        gap: 15px;
+    }
+    
+    .product-image {
+        height: 180px !important;  /* Bigger image for single column */
+    }
+    
+    .product-card {
+        padding: 12px;
+    }
+    
+    .product-name {
+        font-size: 1rem !important;
+    }
+    
+    .add-to-cart-btn {
+        padding: 10px 24px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Fix product price row for all mobile devices */
+@media (max-width: 768px) {
+    .product-price-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+    }
+    
+    .product-price-row .product-price {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+}
+
+/* Ensure product cards are properly structured */
+.product-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+    transition: var(--transition-normal);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.12);
+}
+
+.product-info {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.product-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
 
 
 /* === COPY FROM CATEGORY (PRICE + BUTTON ALIGNMENT) === */
@@ -2529,4 +2724,5 @@ body {
     white-space: nowrap;
     margin-left: auto;   /* 🔑 THIS PUSHES BUTTON TO RIGHT */
 }
+
 
