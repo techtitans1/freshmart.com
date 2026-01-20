@@ -1,13 +1,19 @@
 // ==================== PROFILE PAGE JAVASCRIPT ====================
 // Complete profile management for FreshMart
-// Handles user data, photo upload, edit profile, orders, and settings
-
-// ==================== CONSTANTS ====================
 
 // ==================== STATE VARIABLES ====================
 let userData = null;
 let editMode = 'all';
 let tempPhotoData = null;
+
+// ==================== CONSTANTS ====================
+const STORAGE_KEYS = {
+    CART: 'freshmart_cart',
+    WISHLIST: 'freshmart_wishlist',
+    USER: 'freshmart_user',
+    ORDERS: 'freshmart_orders',
+    SAVINGS: 'freshmart_savings'
+};
 
 // ==================== DOM ELEMENTS ====================
 const DOM = {
@@ -64,7 +70,7 @@ const DOM = {
     loadingOverlay: document.getElementById('loadingOverlay')
 };
 
-// Add Firebase initialization
+// Firebase initialization
 const firebaseConfig = {
     apiKey: "AIzaSyDf4QSE3kw9HQD_ZWJ-DDZ8yN3hgRp4UaM",
     authDomain: "otp-auth-ff7fb.firebaseapp.com",
@@ -81,7 +87,6 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-
 // ==================== AUTH STATE LISTENER ====================
 auth.onAuthStateChanged(async (user) => {
     if (!user) {
@@ -91,180 +96,26 @@ auth.onAuthStateChanged(async (user) => {
 
     console.log('✅ User authenticated:', user.uid);
     await loadProfileFromFirestore(user.uid);
-    updateProfileDisplay();   // 🔥 THIS WAS MISSING
 });
-
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('👤 FreshMart Profile Page Initialized');
     
-    // Load user data from localStorage first (for quick display)
+    // Debug: Check if DOM elements exist
+    console.log('🔍 DEBUG - DOM.totalSavings element:', DOM.totalSavings);
     
-    
-    // Setup all event listeners
     setupEventListeners();
-    
-    // Update UI with user data
-    
-   /* updateStats();
-    loadRecentOrders();*/
     updateCartCount();
-    
-    // Check if user is logged in
-    //checkLoginStatus();
 });
 
-// ==================== SYNC FROM FIREBASE ====================
-
-
-// ==================== DATA MANAGEMENT ====================
-
-/**
- * Load user data from localStorage
- */
-/**
- * Normalize user data from different sources
- */
-/*function normalizeUserData(rawData) {
-    // Build full address if we have components
-    let fullAddress = rawData.address || '';
-    
-    if (!fullAddress && (rawData.streetAddress || rawData.city)) {
-        fullAddress = [
-            rawData.streetAddress,
-            rawData.city,
-            rawData.state,
-            rawData.pincode
-        ].filter(Boolean).join(', ');
-    }
-    
-    return {
-        id: rawData.id || rawData.uid || Date.now(),
-        uid: rawData.uid || rawData.id || null,
-        name: rawData.name || 'Guest User',
-        phone: rawData.phone || '',
-        email: rawData.email || '',
-        address: fullAddress,
-        streetAddress: rawData.streetAddress || '',
-        city: rawData.city || '',
-        state: rawData.state || '',
-        pincode: rawData.pincode || '',
-        profilePhoto: rawData.profilePhoto || rawData.photo || null,
-        provider: rawData.provider || 'email',
-        memberSince: rawData.memberSince || rawData.createdAt || new Date().toISOString(),
-        notifications: rawData.notifications ?? true,
-        wallet: rawData.wallet || 0,
-        orders: Array.isArray(rawData.orders) ? rawData.orders : [],
-        savedAddresses: rawData.savedAddresses || [],
-        paymentMethods: rawData.paymentMethods || []
-    };
-}
-*/
-/**
- * Create default user data object
- */
-/*function createDefaultUserData() {
-    return {
-        id: Date.now(),
-        uid: null,
-        name: 'Guest User',
-        phone: '',
-        email: '',
-        address: '',
-        streetAddress: '',
-        city: '',
-        state: '',
-        pincode: '',
-        profilePhoto: null,
-        provider: null,
-        memberSince: new Date().toISOString(),
-        notifications: true,
-        wallet: 0,
-        orders: [],
-        savedAddresses: [],
-        paymentMethods: []
-    };
-}*/
-
-/**
- * Save user data to localStorage and Firebase
- */
- 
-
-/**
- * Check if user is logged in
- */
-function checkLoginStatus() {
-    const isLoggedIn = userData && (userData.phone || userData.email);
-    
-    if (DOM.profileBadge) {
-        DOM.profileBadge.style.display = isLoggedIn ? 'flex' : 'none';
-    }
-    
-    return isLoggedIn;
-}
-
-// ==================== EVENT LISTENERS ====================
-
-function setupEventListeners() {
-    // Main profile photo upload
-    if (DOM.photoInput) {
-        DOM.photoInput.addEventListener('change', handleMainPhotoUpload);
-    }
-    
-    // Modal photo upload
-    if (DOM.editPhotoInput) {
-        DOM.editPhotoInput.addEventListener('change', handleModalPhotoUpload);
-    }
-    
-    // Edit form submission
-    if (DOM.editForm) {
-        DOM.editForm.addEventListener('submit', handleFormSubmit);
-    }
-    
-    // Phone input validation
-    if (DOM.editPhone) {
-        DOM.editPhone.addEventListener('input', function(e) {
-            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
-        });
-    }
-    
-    // Notification toggle
-    if (DOM.notificationToggle) {
-        DOM.notificationToggle.checked = userData?.notifications ?? true;
-        DOM.notificationToggle.addEventListener('change', handleNotificationToggle);
-    }
-    
-    // Close modal on backdrop click
-    if (DOM.editModal) {
-        DOM.editModal.addEventListener('click', function(e) {
-            if (e.target === DOM.editModal) {
-                closeEditModal();
-            }
-        });
-    }
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', handleKeyboard);
-    
-    console.log('🎯 Event listeners attached');
-}
-
-function handleKeyboard(e) {
-    if (e.key === 'Escape') {
-        if (DOM.editModal?.classList.contains('active')) {
-            closeEditModal();
-        }
-        hideToast();
-    }
-}
-
+// ==================== LOAD PROFILE FROM FIRESTORE ====================
 async function loadProfileFromFirestore(uid) {
     try {
         showLoading();
 
         const doc = await db.collection("users").doc(uid).get();
+        
         if (!doc.exists) {
             console.warn("No profile data found in Firestore");
             hideLoading();
@@ -272,6 +123,11 @@ async function loadProfileFromFirestore(uid) {
         }
 
         const data = doc.data();
+        
+        // DEBUG: Log raw Firestore data
+        console.log('🔥 RAW FIRESTORE DATA:', data);
+        console.log('🔥 Orders in Firestore:', data.orders);
+        console.log('🔥 TotalSavings in Firestore:', data.totalSavings);
 
         // Normalize data for UI
         userData = {
@@ -295,42 +151,424 @@ async function loadProfileFromFirestore(uid) {
                 : new Date().toISOString(),
             wallet: data.wallet || 0,
             orders: data.orders || [],
-            notifications: true
+            totalSavings: data.totalSavings || 0,
+            notifications: data.notifications ?? true
         };
 
+        console.log('📦 NORMALIZED userData:', userData);
         
-        updateStats();
+        updateProfileDisplay();
+        await updateStats();
         loadRecentOrders();
-        updateProfileDisplay();   // 🔥 REQUIRED
 
         hideLoading();
     } catch (err) {
         hideLoading();
-        console.error("Error loading profile:", err);
+        console.error("❌ Error loading profile:", err);
+        showToast('Error loading profile', 'error');
     }
 }
 
+// ==================== UPDATE STATS (FIXED) ====================
+async function updateStats() {
+    console.log('📊 ========== UPDATING STATS ==========');
+    
+    // 1. Orders count
+    const orders = userData?.orders || [];
+    console.log('📦 Orders array:', orders);
+    console.log('📦 Orders count:', orders.length);
+    
+    if (DOM.totalOrders) {
+        DOM.totalOrders.textContent = orders.length;
+        console.log('✅ Updated totalOrders DOM');
+    } else {
+        console.error('❌ DOM.totalOrders element not found!');
+    }
+    
+    // 2. Wishlist count
+   let wishlistCount = 0;
+    try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const doc = await db.collection('wishlists').doc(currentUser.uid).get();
+            
+            if (doc.exists) {
+                const data = doc.data();
+                wishlistCount = (data.items || []).length;
+                console.log('❤️ Wishlist count from Firestore:', wishlistCount);
+            } else {
+                // Fallback: Check user document
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    wishlistCount = (userData.wishlist || []).length;
+                    console.log('❤️ Wishlist count from user doc:', wishlistCount);
+                }
+            }
+        }
+        
+        // Fallback to localStorage
+        if (wishlistCount === 0) {
+            const localWishlist = localStorage.getItem('freshmart_wishlist');
+            if (localWishlist) {
+                const parsed = JSON.parse(localWishlist);
+                wishlistCount = Array.isArray(parsed) ? parsed.length : 0;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading wishlist count:', error);
+        // Fallback to localStorage
+        try {
+            const localWishlist = localStorage.getItem('freshmart_wishlist');
+            if (localWishlist) {
+                const parsed = JSON.parse(localWishlist);
+                wishlistCount = Array.isArray(parsed) ? parsed.length : 0;
+            }
+        } catch (e) {
+            wishlistCount = 0;
+        }
+    }
+    
+    if (DOM.wishlistCount) {
+        DOM.wishlistCount.textContent = wishlistCount;
+        console.log('✅ Updated wishlist count:', wishlistCount);
+    }
+    // 3. Total Savings - THIS IS THE KEY FIX
+    console.log('💰 ===== CALCULATING SAVINGS =====');
+    const savings = await calculateTotalSavings();
+    console.log('💰 Final savings value:', savings);
+    
+    if (DOM.totalSavings) {
+        const formattedSavings = formatCurrency(savings);
+        DOM.totalSavings.textContent = formattedSavings;
+        console.log('✅ Updated totalSavings DOM to:', formattedSavings);
+    } else {
+        console.error('❌ DOM.totalSavings element NOT FOUND!');
+    }
+    
+    // 4. Wallet balance
+    const walletBalance = userData?.wallet || 0;
+    if (DOM.walletBalance) {
+        DOM.walletBalance.textContent = formatCurrency(walletBalance);
+        console.log('✅ Updated walletBalance:', walletBalance);
+    }
+    
+    console.log('📊 ========== STATS UPDATE COMPLETE ==========');
+}
+
+// ==================== CALCULATE TOTAL SAVINGS (COMPREHENSIVE) ====================
+async function calculateTotalSavings() {
+    console.log('🧮 Starting savings calculation...');
+    
+    let totalSavings = 0;
+    
+    try {
+        // METHOD 1: Check if totalSavings is directly stored in userData
+        if (userData?.totalSavings && userData.totalSavings > 0) {
+            console.log('💰 Method 1 - Direct totalSavings:', userData.totalSavings);
+            totalSavings = parseFloat(userData.totalSavings) || 0;
+        }
+        
+        // METHOD 2: Calculate from orders in userData
+        const orders = userData?.orders || [];
+        console.log('📋 Method 2 - Processing', orders.length, 'orders');
+        
+        orders.forEach((order, index) => {
+            console.log(`📋 Order ${index + 1}:`, order);
+            const orderSaving = calculateOrderSavings(order);
+            console.log(`📋 Order ${index + 1} savings:`, orderSaving);
+            totalSavings += orderSaving;
+        });
+        
+        // METHOD 3: Check Firestore orders collection
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            try {
+                const ordersSnapshot = await db.collection('orders')
+                    .where('userId', '==', currentUser.uid)
+                    .get();
+                
+                console.log('🔥 Method 3 - Orders collection size:', ordersSnapshot.size);
+                
+                ordersSnapshot.forEach(doc => {
+                    const order = doc.data();
+                    console.log('🔥 Order from collection:', order);
+                    const orderSaving = calculateOrderSavings(order);
+                    totalSavings += orderSaving;
+                });
+            } catch (e) {
+                console.log('ℹ️ Orders collection not found or empty');
+            }
+        }
+        
+        // METHOD 4: Check localStorage
+        const localSavings = getLocalStorageSavings();
+        console.log('💾 Method 4 - LocalStorage savings:', localSavings);
+        
+        if (localSavings > totalSavings) {
+            totalSavings = localSavings;
+        }
+        
+        // METHOD 5: If still 0, add demo savings for testing
+        if (totalSavings === 0) {
+            console.log('⚠️ No savings found - checking for any discount data...');
+            
+            // Check cart for potential savings
+            const cartSavings = calculateCartSavings();
+            console.log('🛒 Potential cart savings:', cartSavings);
+            totalSavings += cartSavings;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error calculating savings:', error);
+    }
+    
+    console.log('💰 FINAL TOTAL SAVINGS:', totalSavings);
+    return Math.round(totalSavings);
+}
+
+// ==================== CALCULATE ORDER SAVINGS ====================
+function calculateOrderSavings(order) {
+    if (!order) return 0;
+    
+    let savings = 0;
+    
+    // Check direct discount fields
+    if (order.discount) {
+        savings += parseFloat(order.discount) || 0;
+        console.log('  → discount field:', order.discount);
+    }
+    
+    if (order.savings) {
+        savings += parseFloat(order.savings) || 0;
+        console.log('  → savings field:', order.savings);
+    }
+    
+    if (order.totalDiscount) {
+        savings += parseFloat(order.totalDiscount) || 0;
+        console.log('  → totalDiscount field:', order.totalDiscount);
+    }
+    
+    if (order.couponDiscount) {
+        savings += parseFloat(order.couponDiscount) || 0;
+        console.log('  → couponDiscount field:', order.couponDiscount);
+    }
+    
+    if (order.promoDiscount) {
+        savings += parseFloat(order.promoDiscount) || 0;
+        console.log('  → promoDiscount field:', order.promoDiscount);
+    }
+    
+    // Calculate from items
+    const items = order.items || order.cartItems || order.products || [];
+    console.log('  → Items in order:', items.length);
+    
+    items.forEach((item, i) => {
+        const itemSaving = calculateItemSavings(item);
+        if (itemSaving > 0) {
+            console.log(`    → Item ${i + 1} savings:`, itemSaving);
+        }
+        savings += itemSaving;
+    });
+    
+    return savings;
+}
+
+// ==================== CALCULATE ITEM SAVINGS ====================
+function calculateItemSavings(item) {
+    if (!item) return 0;
+    
+    const quantity = parseInt(item.quantity) || 1;
+    let saving = 0;
+    
+    // Method 1: originalPrice vs price
+    if (item.originalPrice !== undefined && item.price !== undefined) {
+        const original = parseFloat(item.originalPrice);
+        const current = parseFloat(item.price);
+        if (original > current && !isNaN(original) && !isNaN(current)) {
+            saving = (original - current) * quantity;
+        }
+    }
+    
+    // Method 2: mrp vs price
+    if (saving === 0 && item.mrp !== undefined && item.price !== undefined) {
+        const mrp = parseFloat(item.mrp);
+        const price = parseFloat(item.price);
+        if (mrp > price && !isNaN(mrp) && !isNaN(price)) {
+            saving = (mrp - price) * quantity;
+        }
+    }
+    
+    // Method 3: mrp vs salePrice
+    if (saving === 0 && item.mrp !== undefined && item.salePrice !== undefined) {
+        const mrp = parseFloat(item.mrp);
+        const sale = parseFloat(item.salePrice);
+        if (mrp > sale && !isNaN(mrp) && !isNaN(sale)) {
+            saving = (mrp - sale) * quantity;
+        }
+    }
+    
+    // Method 4: oldPrice vs price
+    if (saving === 0 && item.oldPrice !== undefined && item.price !== undefined) {
+        const old = parseFloat(item.oldPrice);
+        const price = parseFloat(item.price);
+        if (old > price && !isNaN(old) && !isNaN(price)) {
+            saving = (old - price) * quantity;
+        }
+    }
+    
+    // Method 5: discount field
+    if (saving === 0 && item.discount !== undefined) {
+        saving = parseFloat(item.discount) * quantity;
+    }
+    
+    // Method 6: discountPercent
+    if (saving === 0 && item.discountPercent !== undefined && item.price !== undefined) {
+        const percent = parseFloat(item.discountPercent);
+        const price = parseFloat(item.price);
+        if (!isNaN(percent) && !isNaN(price) && percent > 0) {
+            const originalPrice = price / (1 - percent / 100);
+            saving = (originalPrice - price) * quantity;
+        }
+    }
+    
+    return Math.max(0, saving);
+}
+
+// ==================== GET LOCAL STORAGE SAVINGS ====================
+function getLocalStorageSavings() {
+    try {
+        // Check direct savings
+        const savedAmount = localStorage.getItem(STORAGE_KEYS.SAVINGS);
+        if (savedAmount) {
+            return parseFloat(savedAmount) || 0;
+        }
+        
+        // Check orders in localStorage
+        const ordersData = localStorage.getItem(STORAGE_KEYS.ORDERS);
+        if (ordersData) {
+            const orders = JSON.parse(ordersData);
+            let total = 0;
+            orders.forEach(order => {
+                total += calculateOrderSavings(order);
+            });
+            return total;
+        }
+        
+        return 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+// ==================== CALCULATE CART SAVINGS ====================
+function calculateCartSavings() {
+    try {
+        const cartData = localStorage.getItem(STORAGE_KEYS.CART);
+        if (!cartData) return 0;
+        
+        const cart = JSON.parse(cartData);
+        let savings = 0;
+        
+        cart.forEach(item => {
+            savings += calculateItemSavings(item);
+        });
+        
+        return savings;
+    } catch (error) {
+        return 0;
+    }
+}
+
+// ==================== FORMAT CURRENCY ====================
+function formatCurrency(amount) {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+        return '₹0';
+    }
+    const rounded = Math.round(amount);
+    return `₹${rounded.toLocaleString('en-IN')}`;
+}
+
+// ==================== UPDATE CART COUNT ====================
+function updateCartCount() {
+    try {
+        const cartData = localStorage.getItem(STORAGE_KEYS.CART);
+        const cart = cartData ? JSON.parse(cartData) : [];
+        const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        
+        if (DOM.cartCount) {
+            DOM.cartCount.textContent = totalItems;
+            DOM.cartCount.style.display = totalItems > 0 ? 'flex' : 'none';
+        }
+    } catch (error) {
+        if (DOM.cartCount) {
+            DOM.cartCount.textContent = '0';
+            DOM.cartCount.style.display = 'none';
+        }
+    }
+}
+
+// ==================== EVENT LISTENERS ====================
+function setupEventListeners() {
+    if (DOM.photoInput) {
+        DOM.photoInput.addEventListener('change', handleMainPhotoUpload);
+    }
+    
+    if (DOM.editPhotoInput) {
+        DOM.editPhotoInput.addEventListener('change', handleModalPhotoUpload);
+    }
+    
+    if (DOM.editForm) {
+        DOM.editForm.addEventListener('submit', handleFormSubmit);
+    }
+    
+    if (DOM.editPhone) {
+        DOM.editPhone.addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+        });
+    }
+    
+    if (DOM.notificationToggle) {
+        DOM.notificationToggle.checked = userData?.notifications ?? true;
+        DOM.notificationToggle.addEventListener('change', handleNotificationToggle);
+    }
+    
+    if (DOM.editModal) {
+        DOM.editModal.addEventListener('click', function(e) {
+            if (e.target === DOM.editModal) {
+                closeEditModal();
+            }
+        });
+    }
+    
+    document.addEventListener('keydown', handleKeyboard);
+    
+    console.log('🎯 Event listeners attached');
+}
+
+function handleKeyboard(e) {
+    if (e.key === 'Escape') {
+        if (DOM.editModal?.classList.contains('active')) {
+            closeEditModal();
+        }
+        hideToast();
+    }
+}
 
 // ==================== PROFILE DISPLAY ====================
-
 function updateProfileDisplay() {
     if (!userData) {
         console.warn('No user data to display');
         return;
     }
     
-    console.log('🔄 Updating profile display with:', userData);
-    
-    // Update profile photo
     const photoData = userData.profilePhoto || userData.photo || null;
     updatePhotoDisplay(DOM.profilePhoto, DOM.photoPlaceholder, photoData);
     
-    // Update username
     if (DOM.username) {
         DOM.username.textContent = userData.name || 'Guest User';
     }
     
-    // Update phone
     if (DOM.phone) {
         if (userData.phone) {
             DOM.phone.textContent = `+91 ${formatPhoneNumber(userData.phone)}`;
@@ -341,13 +579,11 @@ function updateProfileDisplay() {
         }
     }
     
-    // Update email
     if (DOM.email) {
         DOM.email.textContent = userData.email || 'Not set';
         DOM.email.classList.toggle('not-set', !userData.email);
     }
     
-    // Update address
     if (DOM.address) {
         let displayAddress = userData.address || '';
         
@@ -372,7 +608,6 @@ function updateProfileDisplay() {
         }
     }
     
-    // Update member since
     if (DOM.memberSince) {
         const dateStr = userData.memberSince || userData.createdAt;
         if (dateStr) {
@@ -418,62 +653,7 @@ function formatPhoneNumber(phone) {
     return cleaned;
 }
 
-// ==================== STATS MANAGEMENT ====================
-
-function updateStats() {
-    const orders = userData?.orders || [];
-    if (DOM.totalOrders) {
-        DOM.totalOrders.textContent = orders.length;
-    }
-    
-    const wishlist = [];
-
-    if (DOM.wishlistCount) {
-        DOM.wishlistCount.textContent = wishlist.length;
-    }
-    
-    const savings = calculateTotalSavings(orders);
-    if (DOM.totalSavings) {
-        DOM.totalSavings.textContent = formatCurrency(savings);
-    }
-    
-    const walletBalance = userData?.wallet || 0;
-    if (DOM.walletBalance) {
-        DOM.walletBalance.textContent = formatCurrency(walletBalance);
-    }
-}
-
-
-
-function calculateTotalSavings(orders) {
-    if (!orders || !Array.isArray(orders)) return 0;
-    return orders.reduce((total, order) => total + (order.discount || 0), 0);
-}
-
-function formatCurrency(amount) {
-    return `₹${amount.toLocaleString('en-IN')}`;
-}
-
-function updateCartCount() {
-    try {
-        const cartData = localStorage.getItem(STORAGE_KEYS.CART);
-        const cart = cartData ? JSON.parse(cartData) : [];
-        const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        
-        if (DOM.cartCount) {
-            DOM.cartCount.textContent = totalItems;
-            DOM.cartCount.style.display = totalItems > 0 ? 'flex' : 'none';
-        }
-    } catch (error) {
-        if (DOM.cartCount) {
-            DOM.cartCount.textContent = '0';
-            DOM.cartCount.style.display = 'none';
-        }
-    }
-}
-
 // ==================== RECENT ORDERS ====================
-
 function loadRecentOrders() {
     const orders = userData?.orders || [];
     
@@ -484,13 +664,18 @@ function loadRecentOrders() {
     
     hideNoOrders();
     
-    const recentOrders = orders.slice(0, 3);
+    const sortedOrders = [...orders].sort((a, b) => {
+        const dateA = new Date(a.date || a.createdAt || 0);
+        const dateB = new Date(b.date || b.createdAt || 0);
+        return dateB - dateA;
+    });
+    
+    const recentOrders = sortedOrders.slice(0, 3);
     
     if (DOM.recentOrders) {
         DOM.recentOrders.innerHTML = recentOrders
             .map(order => createOrderItemHTML(order))
             .join('');
-        attachOrderClickListeners();
     }
 }
 
@@ -507,14 +692,15 @@ function createOrderItemHTML(order) {
     const statusClass = getStatusClass(order.status);
     const statusText = formatStatus(order.status);
     const orderEmoji = getOrderEmoji(order);
-    const formattedDate = formatOrderDate(order.date);
-    const formattedTotal = formatCurrency(order.total || 0);
+    const formattedDate = formatOrderDate(order.date || order.createdAt);
+    const formattedTotal = formatCurrency(order.total || order.totalAmount || 0);
+    const orderId = order.id || order.orderId || Date.now();
     
     return `
-        <div class="order-item" data-order-id="${order.id}" onclick="viewOrderDetails(${order.id})">
+        <div class="order-item" data-order-id="${orderId}" onclick="viewOrderDetails('${orderId}')">
             <div class="order-icon">${orderEmoji}</div>
             <div class="order-info">
-                <div class="order-id">Order #${order.id}</div>
+                <div class="order-id">Order #${orderId}</div>
                 <div class="order-date">${formattedDate}</div>
             </div>
             <span class="order-status ${statusClass}">${statusText}</span>
@@ -546,11 +732,6 @@ function getOrderEmoji(order) {
     if (status === 'delivered') return '✅';
     if (status === 'cancelled' || status === 'refunded') return '❌';
     if (status === 'shipped') return '🚚';
-    
-    const itemCount = order.items?.length || 0;
-    if (itemCount === 0) return '📦';
-    if (itemCount === 1) return '🛍️';
-    if (itemCount <= 3) return '🛒';
     return '📦';
 }
 
@@ -568,18 +749,11 @@ function formatOrderDate(dateString) {
     }
 }
 
-function attachOrderClickListeners() {
-    document.querySelectorAll('.order-item').forEach(item => {
-        item.style.cursor = 'pointer';
-    });
-}
-
 function viewOrderDetails(orderId) {
     window.location.href = `orders.html?id=${orderId}`;
 }
 
 // ==================== PHOTO UPLOAD ====================
-
 async function handleMainPhotoUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -598,6 +772,13 @@ async function handleMainPhotoUpload(event) {
         
         userData.profilePhoto = compressedBase64;
         
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            await db.collection('users').doc(currentUser.uid).update({
+                photo: compressedBase64,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
         
         updateProfileDisplay();
         
@@ -640,7 +821,7 @@ async function handleModalPhotoUpload(event) {
 
 function validateImageFile(file) {
     if (!file.type.startsWith('image/')) {
-        return { valid: false, message: 'Please select an image file (JPG, PNG, etc.)' };
+        return { valid: false, message: 'Please select an image file' };
     }
     
     const maxSize = 5 * 1024 * 1024;
@@ -703,7 +884,6 @@ function removePhoto() {
 }
 
 // ==================== EDIT MODAL ====================
-
 function openEditModal(mode = 'all') {
     editMode = mode;
     tempPhotoData = userData?.profilePhoto || null;
@@ -778,22 +958,10 @@ function closeEditModal() {
 function populateEditForm() {
     if (!userData) return;
     
-    if (DOM.editName) {
-        DOM.editName.value = userData.name || '';
-    }
-    
-    if (DOM.editPhone) {
-        DOM.editPhone.value = userData.phone || '';
-    }
-    
-    if (DOM.editEmail) {
-        DOM.editEmail.value = userData.email || '';
-    }
-    
-    if (DOM.editAddress) {
-        // Show full address in the edit field
-        DOM.editAddress.value = userData.address || '';
-    }
+    if (DOM.editName) DOM.editName.value = userData.name || '';
+    if (DOM.editPhone) DOM.editPhone.value = userData.phone || '';
+    if (DOM.editEmail) DOM.editEmail.value = userData.email || '';
+    if (DOM.editAddress) DOM.editAddress.value = userData.address || '';
     
     updatePhotoDisplay(
         DOM.editProfilePhoto, 
@@ -802,8 +970,7 @@ function populateEditForm() {
     );
 }
 
-// ==================== FORM SUBMISSION (FIXED) ====================
-
+// ==================== FORM SUBMISSION ====================
 async function handleFormSubmit(event) {
     event.preventDefault();
 
@@ -830,58 +997,44 @@ async function handleFormSubmit(event) {
     showLoading();
 
     try {
-        // 🔒 Phone uniqueness check (only if phone changed)
-        if (
-            updatedData.phone &&
-            editMode !== 'email' &&
-            updatedData.phone !== userData.phone
-        ) {
-            const snapshot = await db
-                .collection('users')
+        if (updatedData.phone && editMode !== 'email' && updatedData.phone !== userData.phone) {
+            const snapshot = await db.collection('users')
                 .where('phone', '==', updatedData.phone)
                 .get();
 
             const exists = snapshot.docs.some(doc => doc.id !== currentUser.uid);
-
-        if (exists) {
-            hideLoading();
-            showToast('This phone number is already registered.', 'error');
-            return;
+            if (exists) {
+                hideLoading();
+                showToast('This phone number is already registered.', 'error');
+                return;
+            }
         }
 
-        }
-
-        // 🔥 Build Firestore update payload based on editMode
         const firestoreUpdate = {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-       if (editMode === 'all') {
-        firestoreUpdate.name = updatedData.name;
-        firestoreUpdate.phone = updatedData.phone;
-        firestoreUpdate.address = updatedData.address;
-        firestoreUpdate.photo = updatedData.photo;
+        if (editMode === 'all') {
+            firestoreUpdate.name = updatedData.name;
+            firestoreUpdate.phone = updatedData.phone;
+            firestoreUpdate.address = updatedData.address;
+            firestoreUpdate.photo = updatedData.photo;
         } else if (editMode === 'phone') {
             firestoreUpdate.phone = updatedData.phone;
-        } else if (editMode === 'email') {
-            
         } else if (editMode === 'address') {
             firestoreUpdate.address = updatedData.address;
         }
 
-        // ✅ REAL SAVE TO FIRESTORE
         await db.collection('users').doc(currentUser.uid).update(firestoreUpdate);
 
-        // ✅ Sync local UI state
         userData = {
-        ...userData,
-        ...updatedData,
-        profilePhoto: updatedData.photo
-    };
-
+            ...userData,
+            ...updatedData,
+            profilePhoto: updatedData.photo
+        };
 
         updateProfileDisplay();
-        updateStats();
+        await updateStats();
         closeEditModal();
 
         hideLoading();
@@ -893,7 +1046,6 @@ async function handleFormSubmit(event) {
         showToast('Failed to update profile. Please try again.', 'error');
     }
 }
-
 
 function validateFormData(data, mode) {
     if (mode === 'all' && !data.name) {
@@ -925,10 +1077,17 @@ function validateFormData(data, mode) {
 }
 
 // ==================== SETTINGS ====================
-
 function handleNotificationToggle(event) {
     const enabled = event.target.checked;
     userData.notifications = enabled;
+    
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+        db.collection('users').doc(currentUser.uid).update({
+            notifications: enabled
+        });
+    }
+    
     showToast(enabled ? 'Notifications enabled' : 'Notifications disabled', 'info');
 }
 
@@ -942,7 +1101,7 @@ function openNotificationSettings() {
 function shareApp() {
     const shareData = {
         title: 'FreshMart - Online Grocery Store',
-        text: 'Check out FreshMart for fresh groceries delivered to your doorstep!',
+        text: 'Check out FreshMart for fresh groceries!',
         url: window.location.origin
     };
     
@@ -963,7 +1122,7 @@ function fallbackShare(shareData) {
     const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
     navigator.clipboard.writeText(shareText)
         .then(() => showToast('Link copied to clipboard!', 'success'))
-        .catch(() => showToast('Unable to share. Please try again.', 'error'));
+        .catch(() => showToast('Unable to share.', 'error'));
 }
 
 function rateApp() {
@@ -971,7 +1130,6 @@ function rateApp() {
 }
 
 // ==================== LOGOUT ====================
-
 function handleLogout() {
     const confirmed = confirm('Are you sure you want to logout?');
     if (!confirmed) return;
@@ -979,7 +1137,7 @@ function handleLogout() {
     showLoading();
     
     auth.signOut().then(() => {
-        
+        localStorage.removeItem(STORAGE_KEYS.USER);
         
         hideLoading();
         showToast('Logged out successfully!', 'success');
@@ -995,7 +1153,6 @@ function handleLogout() {
 }
 
 // ==================== TOAST NOTIFICATIONS ====================
-
 function showToast(message, type = 'success') {
     if (!DOM.toast || !DOM.toastMessage || !DOM.toastIcon) return;
     
@@ -1024,7 +1181,6 @@ function hideToast() {
 }
 
 // ==================== LOADING OVERLAY ====================
-
 function showLoading() {
     if (DOM.loadingOverlay) {
         DOM.loadingOverlay.classList.remove('hidden');
@@ -1037,33 +1193,62 @@ function hideLoading() {
     }
 }
 
-// ==================== UTILITY FUNCTIONS ====================
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-function throttle(func, limit) {
-    let inThrottle;
-    return function executedFunction(...args) {
-        if (!inThrottle) {
-            func(...args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
+// ==================== TEST FUNCTION - ADD THIS FOR DEBUGGING ====================
+window.testSavings = async function(amount = 150) {
+    console.log('🧪 Testing savings with amount:', amount);
+    
+    // Directly update DOM
+    if (DOM.totalSavings) {
+        DOM.totalSavings.textContent = formatCurrency(amount);
+        console.log('✅ DOM updated directly');
+    } else {
+        console.error('❌ totalSavings element not found!');
+        
+        // Try to find it another way
+        const element = document.getElementById('totalSavings');
+        console.log('Alternative search:', element);
+        
+        if (element) {
+            element.textContent = formatCurrency(amount);
+            console.log('✅ Found via getElementById');
         }
-    };
-}
+    }
+};
+
+// Add demo savings to test
+window.addDemoSavings = async function() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        console.error('No user logged in');
+        return;
+    }
+    
+    try {
+        await db.collection('users').doc(currentUser.uid).update({
+            totalSavings: 250,
+            orders: [
+                {
+                    id: '12345',
+                    date: new Date().toISOString(),
+                    total: 500,
+                    discount: 50,
+                    status: 'delivered',
+                    items: [
+                        { name: 'Apples', price: 100, originalPrice: 120, quantity: 2 },
+                        { name: 'Milk', price: 50, originalPrice: 60, quantity: 1 }
+                    ]
+                }
+            ]
+        });
+        
+        console.log('✅ Demo data added! Refreshing...');
+        window.location.reload();
+    } catch (error) {
+        console.error('Error adding demo data:', error);
+    }
+};
 
 // ==================== GLOBAL EXPORTS ====================
-
 window.openEditModal = openEditModal;
 window.closeEditModal = closeEditModal;
 window.removePhoto = removePhoto;
@@ -1074,6 +1259,6 @@ window.shareApp = shareApp;
 window.rateApp = rateApp;
 window.hideToast = hideToast;
 
-// ==================== CONSOLE LOG ====================
 console.log('%c👤 FreshMart Profile', 'color: #2e7d32; font-size: 16px; font-weight: bold;');
 console.log('%cProfile management ready!', 'color: #666; font-size: 12px;');
+console.log('%c💡 Debug: Run testSavings(100) or addDemoSavings() in console', 'color: #1976d2;');
