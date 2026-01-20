@@ -15,60 +15,88 @@ const STORAGE_KEYS = {
     SAVINGS: 'freshmart_savings'
 };
 
-// ==================== DOM ELEMENTS ====================
-const DOM = {
-    // Profile display elements
-    profilePhoto: document.getElementById('profilePhoto'),
-    photoPlaceholder: document.getElementById('photoPlaceholder'),
-    photoInput: document.getElementById('photoInput'),
-    username: document.getElementById('username'),
-    phone: document.getElementById('phone'),
-    email: document.getElementById('email'),
-    address: document.getElementById('address'),
-    memberSince: document.getElementById('memberSince'),
-    profileBadge: document.getElementById('profileBadge'),
+// ==================== DOM ELEMENTS (Initialize as empty) ====================
+let DOM = {};
+
+// ==================== INITIALIZE DOM ELEMENTS ====================
+function initializeDOMElements() {
+    DOM = {
+        // Profile display elements
+        profilePhoto: document.getElementById('profilePhoto'),
+        photoPlaceholder: document.getElementById('photoPlaceholder'),
+        photoInput: document.getElementById('photoInput'),
+        username: document.getElementById('username'),
+        phone: document.getElementById('phone'),
+        email: document.getElementById('email'),
+        address: document.getElementById('address'),
+        memberSince: document.getElementById('memberSince'),
+        profileBadge: document.getElementById('profileBadge'),
+        
+        // Stats elements
+        totalOrders: document.getElementById('totalOrders'),
+        wishlistCount: document.getElementById('wishlistCount'),
+        totalSavings: document.getElementById('totalSavings'),
+        walletBalance: document.getElementById('walletBalance'),
+        cartCount: document.getElementById('cartCount'),
+        
+        // Orders elements
+        recentOrders: document.getElementById('recentOrders'),
+        noOrders: document.getElementById('noOrders'),
+        
+        // Modal elements
+        editModal: document.getElementById('editModal'),
+        modalTitle: document.getElementById('modalTitle'),
+        editForm: document.getElementById('editForm'),
+        editProfilePhoto: document.getElementById('editProfilePhoto'),
+        editPhotoPlaceholder: document.getElementById('editPhotoPlaceholder'),
+        editPhotoInput: document.getElementById('editPhotoInput'),
+        editName: document.getElementById('editName'),
+        editPhone: document.getElementById('editPhone'),
+        editEmail: document.getElementById('editEmail'),
+        editAddress: document.getElementById('editAddress'),
+        
+        // Form sections
+        photoSection: document.getElementById('photoSection'),
+        nameSection: document.getElementById('nameSection'),
+        phoneSection: document.getElementById('phoneSection'),
+        emailSection: document.getElementById('emailSection'),
+        addressSection: document.getElementById('addressSection'),
+        
+        // Settings elements
+        notificationToggle: document.getElementById('notificationToggle'),
+        
+        // Toast elements
+        toast: document.getElementById('toast'),
+        toastIcon: document.getElementById('toastIcon'),
+        toastMessage: document.getElementById('toastMessage'),
+        
+        // Loading overlay
+        loadingOverlay: document.getElementById('loadingOverlay')
+    };
     
-    // Stats elements
-    totalOrders: document.getElementById('totalOrders'),
-    wishlistCount: document.getElementById('wishlistCount'),
-    totalSavings: document.getElementById('totalSavings'),
-    walletBalance: document.getElementById('walletBalance'),
-    cartCount: document.getElementById('cartCount'),
+    console.log('✅ DOM Elements Initialized');
+    console.log('🔍 DOM.totalSavings:', DOM.totalSavings);
+    console.log('🔍 DOM.totalOrders:', DOM.totalOrders);
+    console.log('🔍 DOM.wishlistCount:', DOM.wishlistCount);
+}
+
+// ==================== REFRESH DOM ELEMENT ====================
+function refreshDOMElement(key) {
+    const elementIds = {
+        totalSavings: 'totalSavings',
+        totalOrders: 'totalOrders',
+        wishlistCount: 'wishlistCount',
+        walletBalance: 'walletBalance',
+        cartCount: 'cartCount'
+    };
     
-    // Orders elements
-    recentOrders: document.getElementById('recentOrders'),
-    noOrders: document.getElementById('noOrders'),
+    if (elementIds[key] && !DOM[key]) {
+        DOM[key] = document.getElementById(elementIds[key]);
+        console.log(`🔄 Refreshed DOM.${key}:`, DOM[key]);
+    }
     
-    // Modal elements
-    editModal: document.getElementById('editModal'),
-    modalTitle: document.getElementById('modalTitle'),
-    editForm: document.getElementById('editForm'),
-    editProfilePhoto: document.getElementById('editProfilePhoto'),
-    editPhotoPlaceholder: document.getElementById('editPhotoPlaceholder'),
-    editPhotoInput: document.getElementById('editPhotoInput'),
-    editName: document.getElementById('editName'),
-    editPhone: document.getElementById('editPhone'),
-    editEmail: document.getElementById('editEmail'),
-    editAddress: document.getElementById('editAddress'),
-    
-    // Form sections
-    photoSection: document.getElementById('photoSection'),
-    nameSection: document.getElementById('nameSection'),
-    phoneSection: document.getElementById('phoneSection'),
-    emailSection: document.getElementById('emailSection'),
-    addressSection: document.getElementById('addressSection'),
-    
-    // Settings elements
-    notificationToggle: document.getElementById('notificationToggle'),
-    
-    // Toast elements
-    toast: document.getElementById('toast'),
-    toastIcon: document.getElementById('toastIcon'),
-    toastMessage: document.getElementById('toastMessage'),
-    
-    // Loading overlay
-    loadingOverlay: document.getElementById('loadingOverlay')
-};
+    return DOM[key];
+}
 
 // Firebase initialization
 const firebaseConfig = {
@@ -87,27 +115,36 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ==================== AUTH STATE LISTENER ====================
-auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-        window.location.href = 'login.html?redirect=profile';
-        return;
-    }
-
-    console.log('✅ User authenticated:', user.uid);
-    await loadProfileFromFirestore(user.uid);
-});
-
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('👤 FreshMart Profile Page Initialized');
     
-    // Debug: Check if DOM elements exist
-    console.log('🔍 DEBUG - DOM.totalSavings element:', DOM.totalSavings);
+    // Initialize DOM elements FIRST
+    initializeDOMElements();
     
+    // Setup event listeners
     setupEventListeners();
+    
+    // Update cart count
     updateCartCount();
+    
+    // Check auth state
+    checkAuthState();
 });
+
+// ==================== AUTH STATE CHECK ====================
+function checkAuthState() {
+    auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+            console.log('❌ No user authenticated, redirecting...');
+            window.location.href = 'login.html?redirect=profile';
+            return;
+        }
+
+        console.log('✅ User authenticated:', user.uid);
+        await loadProfileFromFirestore(user.uid);
+    });
+}
 
 // ==================== LOAD PROFILE FROM FIRESTORE ====================
 async function loadProfileFromFirestore(uid) {
@@ -157,6 +194,9 @@ async function loadProfileFromFirestore(uid) {
 
         console.log('📦 NORMALIZED userData:', userData);
         
+        // Ensure DOM is ready before updating
+        await ensureDOMReady();
+        
         updateProfileDisplay();
         await updateStats();
         loadRecentOrders();
@@ -169,39 +209,60 @@ async function loadProfileFromFirestore(uid) {
     }
 }
 
+// ==================== ENSURE DOM IS READY ====================
+function ensureDOMReady() {
+    return new Promise((resolve) => {
+        // Re-initialize DOM elements if they're null
+        if (!DOM.totalSavings || !DOM.totalOrders) {
+            console.log('🔄 Re-initializing DOM elements...');
+            initializeDOMElements();
+        }
+        
+        // Small delay to ensure DOM is painted
+        setTimeout(resolve, 50);
+    });
+}
+
 // ==================== UPDATE STATS (FIXED) ====================
 async function updateStats() {
     console.log('📊 ========== UPDATING STATS ==========');
+    
+    // Ensure DOM elements exist
+    refreshDOMElement('totalOrders');
+    refreshDOMElement('wishlistCount');
+    refreshDOMElement('totalSavings');
+    refreshDOMElement('walletBalance');
     
     // 1. Orders count
     const orders = userData?.orders || [];
     console.log('📦 Orders array:', orders);
     console.log('📦 Orders count:', orders.length);
     
-    if (DOM.totalOrders) {
-        DOM.totalOrders.textContent = orders.length;
+    const totalOrdersEl = DOM.totalOrders || document.getElementById('totalOrders');
+    if (totalOrdersEl) {
+        totalOrdersEl.textContent = orders.length;
         console.log('✅ Updated totalOrders DOM');
     } else {
         console.error('❌ DOM.totalOrders element not found!');
     }
     
     // 2. Wishlist count
-   let wishlistCount = 0;
+    let wishlistCount = 0;
     try {
         const currentUser = auth.currentUser;
         if (currentUser) {
-            const doc = await db.collection('wishlists').doc(currentUser.uid).get();
+            const wishlistDoc = await db.collection('wishlists').doc(currentUser.uid).get();
             
-            if (doc.exists) {
-                const data = doc.data();
-                wishlistCount = (data.items || []).length;
+            if (wishlistDoc.exists) {
+                const wishlistData = wishlistDoc.data();
+                wishlistCount = (wishlistData.items || []).length;
                 console.log('❤️ Wishlist count from Firestore:', wishlistCount);
             } else {
                 // Fallback: Check user document
                 const userDoc = await db.collection('users').doc(currentUser.uid).get();
                 if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    wishlistCount = (userData.wishlist || []).length;
+                    const userDocData = userDoc.data();
+                    wishlistCount = (userDocData.wishlist || []).length;
                     console.log('❤️ Wishlist count from user doc:', wishlistCount);
                 }
             }
@@ -229,94 +290,118 @@ async function updateStats() {
         }
     }
     
-    if (DOM.wishlistCount) {
-        DOM.wishlistCount.textContent = wishlistCount;
+    const wishlistCountEl = DOM.wishlistCount || document.getElementById('wishlistCount');
+    if (wishlistCountEl) {
+        wishlistCountEl.textContent = wishlistCount;
         console.log('✅ Updated wishlist count:', wishlistCount);
     }
-    // 3. Total Savings - THIS IS THE KEY FIX
+    
+    // 3. Total Savings - FIXED
     console.log('💰 ===== CALCULATING SAVINGS =====');
     const savings = await calculateTotalSavings();
     console.log('💰 Final savings value:', savings);
     
-    if (DOM.totalSavings) {
+    const totalSavingsEl = DOM.totalSavings || document.getElementById('totalSavings');
+    if (totalSavingsEl) {
         const formattedSavings = formatCurrency(savings);
-        DOM.totalSavings.textContent = formattedSavings;
+        totalSavingsEl.textContent = formattedSavings;
         console.log('✅ Updated totalSavings DOM to:', formattedSavings);
     } else {
         console.error('❌ DOM.totalSavings element NOT FOUND!');
+        // Try one more time with a delay
+        setTimeout(() => {
+            const retryEl = document.getElementById('totalSavings');
+            if (retryEl) {
+                retryEl.textContent = formatCurrency(savings);
+                console.log('✅ Updated totalSavings on retry');
+            }
+        }, 100);
     }
     
     // 4. Wallet balance
     const walletBalance = userData?.wallet || 0;
-    if (DOM.walletBalance) {
-        DOM.walletBalance.textContent = formatCurrency(walletBalance);
+    const walletBalanceEl = DOM.walletBalance || document.getElementById('walletBalance');
+    if (walletBalanceEl) {
+        walletBalanceEl.textContent = formatCurrency(walletBalance);
         console.log('✅ Updated walletBalance:', walletBalance);
     }
     
     console.log('📊 ========== STATS UPDATE COMPLETE ==========');
 }
 
-// ==================== CALCULATE TOTAL SAVINGS (COMPREHENSIVE) ====================
+// ==================== CALCULATE TOTAL SAVINGS (FIXED - NO DOUBLE COUNTING) ====================
 async function calculateTotalSavings() {
     console.log('🧮 Starting savings calculation...');
     
     let totalSavings = 0;
     
     try {
-        // METHOD 1: Check if totalSavings is directly stored in userData
+        // PRIORITY 1: Check if totalSavings is directly stored in userData (from Firestore)
         if (userData?.totalSavings && userData.totalSavings > 0) {
-            console.log('💰 Method 1 - Direct totalSavings:', userData.totalSavings);
-            totalSavings = parseFloat(userData.totalSavings) || 0;
+            console.log('💰 Using stored totalSavings from Firestore:', userData.totalSavings);
+            return parseFloat(userData.totalSavings) || 0;
         }
         
-        // METHOD 2: Calculate from orders in userData
+        // PRIORITY 2: Calculate from orders in userData
         const orders = userData?.orders || [];
-        console.log('📋 Method 2 - Processing', orders.length, 'orders');
+        console.log('📋 Calculating from', orders.length, 'orders');
         
-        orders.forEach((order, index) => {
-            console.log(`📋 Order ${index + 1}:`, order);
-            const orderSaving = calculateOrderSavings(order);
-            console.log(`📋 Order ${index + 1} savings:`, orderSaving);
-            totalSavings += orderSaving;
-        });
+        if (orders.length > 0) {
+            orders.forEach((order, index) => {
+                console.log(`📋 Order ${index + 1}:`, order);
+                const orderSaving = calculateOrderSavings(order);
+                console.log(`📋 Order ${index + 1} savings:`, orderSaving);
+                totalSavings += orderSaving;
+            });
+            
+            if (totalSavings > 0) {
+                console.log('💰 Calculated from orders:', totalSavings);
+                return Math.round(totalSavings);
+            }
+        }
         
-        // METHOD 3: Check Firestore orders collection
+        // PRIORITY 3: Check Firestore orders collection (only if no orders in user doc)
         const currentUser = auth.currentUser;
-        if (currentUser) {
+        if (currentUser && orders.length === 0) {
             try {
                 const ordersSnapshot = await db.collection('orders')
                     .where('userId', '==', currentUser.uid)
                     .get();
                 
-                console.log('🔥 Method 3 - Orders collection size:', ordersSnapshot.size);
+                console.log('🔥 Orders collection size:', ordersSnapshot.size);
                 
-                ordersSnapshot.forEach(doc => {
-                    const order = doc.data();
-                    console.log('🔥 Order from collection:', order);
-                    const orderSaving = calculateOrderSavings(order);
-                    totalSavings += orderSaving;
-                });
+                if (!ordersSnapshot.empty) {
+                    ordersSnapshot.forEach(doc => {
+                        const order = doc.data();
+                        console.log('🔥 Order from collection:', order);
+                        const orderSaving = calculateOrderSavings(order);
+                        totalSavings += orderSaving;
+                    });
+                    
+                    if (totalSavings > 0) {
+                        console.log('💰 Calculated from orders collection:', totalSavings);
+                        return Math.round(totalSavings);
+                    }
+                }
             } catch (e) {
-                console.log('ℹ️ Orders collection not found or empty');
+                console.log('ℹ️ Orders collection not found or access denied:', e.message);
             }
         }
         
-        // METHOD 4: Check localStorage
+        // PRIORITY 4: Check localStorage
         const localSavings = getLocalStorageSavings();
-        console.log('💾 Method 4 - LocalStorage savings:', localSavings);
+        console.log('💾 LocalStorage savings:', localSavings);
         
-        if (localSavings > totalSavings) {
-            totalSavings = localSavings;
+        if (localSavings > 0) {
+            return localSavings;
         }
         
-        // METHOD 5: If still 0, add demo savings for testing
-        if (totalSavings === 0) {
-            console.log('⚠️ No savings found - checking for any discount data...');
-            
-            // Check cart for potential savings
-            const cartSavings = calculateCartSavings();
-            console.log('🛒 Potential cart savings:', cartSavings);
-            totalSavings += cartSavings;
+        // PRIORITY 5: Calculate from current cart (potential savings)
+        const cartSavings = calculateCartSavings();
+        console.log('🛒 Potential cart savings:', cartSavings);
+        
+        if (cartSavings > 0) {
+            return Math.round(cartSavings);
         }
         
     } catch (error) {
@@ -333,43 +418,49 @@ function calculateOrderSavings(order) {
     
     let savings = 0;
     
-    // Check direct discount fields
-    if (order.discount) {
-        savings += parseFloat(order.discount) || 0;
-        console.log('  → discount field:', order.discount);
+    // Check direct discount fields (only use one to avoid double counting)
+    if (order.totalDiscount !== undefined && order.totalDiscount > 0) {
+        savings = parseFloat(order.totalDiscount) || 0;
+        console.log('  → Using totalDiscount:', savings);
+        return savings;
     }
     
-    if (order.savings) {
-        savings += parseFloat(order.savings) || 0;
-        console.log('  → savings field:', order.savings);
+    if (order.savings !== undefined && order.savings > 0) {
+        savings = parseFloat(order.savings) || 0;
+        console.log('  → Using savings field:', savings);
+        return savings;
     }
     
-    if (order.totalDiscount) {
-        savings += parseFloat(order.totalDiscount) || 0;
-        console.log('  → totalDiscount field:', order.totalDiscount);
+    if (order.discount !== undefined && order.discount > 0) {
+        savings = parseFloat(order.discount) || 0;
+        console.log('  → Using discount field:', savings);
+        return savings;
     }
     
+    // Add coupon/promo discounts
     if (order.couponDiscount) {
         savings += parseFloat(order.couponDiscount) || 0;
-        console.log('  → couponDiscount field:', order.couponDiscount);
+        console.log('  → couponDiscount:', order.couponDiscount);
     }
     
     if (order.promoDiscount) {
         savings += parseFloat(order.promoDiscount) || 0;
-        console.log('  → promoDiscount field:', order.promoDiscount);
+        console.log('  → promoDiscount:', order.promoDiscount);
     }
     
-    // Calculate from items
-    const items = order.items || order.cartItems || order.products || [];
-    console.log('  → Items in order:', items.length);
-    
-    items.forEach((item, i) => {
-        const itemSaving = calculateItemSavings(item);
-        if (itemSaving > 0) {
-            console.log(`    → Item ${i + 1} savings:`, itemSaving);
-        }
-        savings += itemSaving;
-    });
+    // If no direct discount fields, calculate from items
+    if (savings === 0) {
+        const items = order.items || order.cartItems || order.products || [];
+        console.log('  → Calculating from', items.length, 'items');
+        
+        items.forEach((item, i) => {
+            const itemSaving = calculateItemSavings(item);
+            if (itemSaving > 0) {
+                console.log(`    → Item ${i + 1} savings:`, itemSaving);
+            }
+            savings += itemSaving;
+        });
+    }
     
     return savings;
 }
@@ -387,48 +478,54 @@ function calculateItemSavings(item) {
         const current = parseFloat(item.price);
         if (original > current && !isNaN(original) && !isNaN(current)) {
             saving = (original - current) * quantity;
+            return saving;
         }
     }
     
     // Method 2: mrp vs price
-    if (saving === 0 && item.mrp !== undefined && item.price !== undefined) {
+    if (item.mrp !== undefined && item.price !== undefined) {
         const mrp = parseFloat(item.mrp);
         const price = parseFloat(item.price);
         if (mrp > price && !isNaN(mrp) && !isNaN(price)) {
             saving = (mrp - price) * quantity;
+            return saving;
         }
     }
     
     // Method 3: mrp vs salePrice
-    if (saving === 0 && item.mrp !== undefined && item.salePrice !== undefined) {
+    if (item.mrp !== undefined && item.salePrice !== undefined) {
         const mrp = parseFloat(item.mrp);
         const sale = parseFloat(item.salePrice);
         if (mrp > sale && !isNaN(mrp) && !isNaN(sale)) {
             saving = (mrp - sale) * quantity;
+            return saving;
         }
     }
     
     // Method 4: oldPrice vs price
-    if (saving === 0 && item.oldPrice !== undefined && item.price !== undefined) {
+    if (item.oldPrice !== undefined && item.price !== undefined) {
         const old = parseFloat(item.oldPrice);
         const price = parseFloat(item.price);
         if (old > price && !isNaN(old) && !isNaN(price)) {
             saving = (old - price) * quantity;
+            return saving;
         }
     }
     
     // Method 5: discount field
-    if (saving === 0 && item.discount !== undefined) {
+    if (item.discount !== undefined && item.discount > 0) {
         saving = parseFloat(item.discount) * quantity;
+        return saving;
     }
     
     // Method 6: discountPercent
-    if (saving === 0 && item.discountPercent !== undefined && item.price !== undefined) {
+    if (item.discountPercent !== undefined && item.price !== undefined) {
         const percent = parseFloat(item.discountPercent);
         const price = parseFloat(item.price);
         if (!isNaN(percent) && !isNaN(price) && percent > 0) {
             const originalPrice = price / (1 - percent / 100);
             saving = (originalPrice - price) * quantity;
+            return saving;
         }
     }
     
@@ -441,7 +538,10 @@ function getLocalStorageSavings() {
         // Check direct savings
         const savedAmount = localStorage.getItem(STORAGE_KEYS.SAVINGS);
         if (savedAmount) {
-            return parseFloat(savedAmount) || 0;
+            const parsed = parseFloat(savedAmount);
+            if (!isNaN(parsed) && parsed > 0) {
+                return parsed;
+            }
         }
         
         // Check orders in localStorage
@@ -449,14 +549,17 @@ function getLocalStorageSavings() {
         if (ordersData) {
             const orders = JSON.parse(ordersData);
             let total = 0;
-            orders.forEach(order => {
-                total += calculateOrderSavings(order);
-            });
+            if (Array.isArray(orders)) {
+                orders.forEach(order => {
+                    total += calculateOrderSavings(order);
+                });
+            }
             return total;
         }
         
         return 0;
     } catch (error) {
+        console.error('Error reading localStorage savings:', error);
         return 0;
     }
 }
@@ -468,6 +571,8 @@ function calculateCartSavings() {
         if (!cartData) return 0;
         
         const cart = JSON.parse(cartData);
+        if (!Array.isArray(cart)) return 0;
+        
         let savings = 0;
         
         cart.forEach(item => {
@@ -476,6 +581,7 @@ function calculateCartSavings() {
         
         return savings;
     } catch (error) {
+        console.error('Error calculating cart savings:', error);
         return 0;
     }
 }
@@ -496,59 +602,71 @@ function updateCartCount() {
         const cart = cartData ? JSON.parse(cartData) : [];
         const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
         
-        if (DOM.cartCount) {
-            DOM.cartCount.textContent = totalItems;
-            DOM.cartCount.style.display = totalItems > 0 ? 'flex' : 'none';
+        const cartCountEl = DOM.cartCount || document.getElementById('cartCount');
+        if (cartCountEl) {
+            cartCountEl.textContent = totalItems;
+            cartCountEl.style.display = totalItems > 0 ? 'flex' : 'none';
         }
     } catch (error) {
-        if (DOM.cartCount) {
-            DOM.cartCount.textContent = '0';
-            DOM.cartCount.style.display = 'none';
+        const cartCountEl = DOM.cartCount || document.getElementById('cartCount');
+        if (cartCountEl) {
+            cartCountEl.textContent = '0';
+            cartCountEl.style.display = 'none';
         }
     }
 }
 
 // ==================== EVENT LISTENERS ====================
 function setupEventListeners() {
-    if (DOM.photoInput) {
-        DOM.photoInput.addEventListener('change', handleMainPhotoUpload);
-    }
-    
-    if (DOM.editPhotoInput) {
-        DOM.editPhotoInput.addEventListener('change', handleModalPhotoUpload);
-    }
-    
-    if (DOM.editForm) {
-        DOM.editForm.addEventListener('submit', handleFormSubmit);
-    }
-    
-    if (DOM.editPhone) {
-        DOM.editPhone.addEventListener('input', function(e) {
-            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
-        });
-    }
-    
-    if (DOM.notificationToggle) {
-        DOM.notificationToggle.checked = userData?.notifications ?? true;
-        DOM.notificationToggle.addEventListener('change', handleNotificationToggle);
-    }
-    
-    if (DOM.editModal) {
-        DOM.editModal.addEventListener('click', function(e) {
-            if (e.target === DOM.editModal) {
-                closeEditModal();
-            }
-        });
-    }
-    
-    document.addEventListener('keydown', handleKeyboard);
-    
-    console.log('🎯 Event listeners attached');
+    // Wait a bit for DOM to be ready
+    setTimeout(() => {
+        const photoInput = DOM.photoInput || document.getElementById('photoInput');
+        if (photoInput) {
+            photoInput.addEventListener('change', handleMainPhotoUpload);
+        }
+        
+        const editPhotoInput = DOM.editPhotoInput || document.getElementById('editPhotoInput');
+        if (editPhotoInput) {
+            editPhotoInput.addEventListener('change', handleModalPhotoUpload);
+        }
+        
+        const editForm = DOM.editForm || document.getElementById('editForm');
+        if (editForm) {
+            editForm.addEventListener('submit', handleFormSubmit);
+        }
+        
+        const editPhone = DOM.editPhone || document.getElementById('editPhone');
+        if (editPhone) {
+            editPhone.addEventListener('input', function(e) {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+            });
+        }
+        
+        const notificationToggle = DOM.notificationToggle || document.getElementById('notificationToggle');
+        if (notificationToggle) {
+            notificationToggle.checked = userData?.notifications ?? true;
+            notificationToggle.addEventListener('change', handleNotificationToggle);
+        }
+        
+        const editModal = DOM.editModal || document.getElementById('editModal');
+        if (editModal) {
+            editModal.addEventListener('click', function(e) {
+                if (e.target === editModal) {
+                    closeEditModal();
+                }
+            });
+        }
+        
+        document.addEventListener('keydown', handleKeyboard);
+        
+        console.log('🎯 Event listeners attached');
+    }, 100);
 }
 
 function handleKeyboard(e) {
     if (e.key === 'Escape') {
-        if (DOM.editModal?.classList.contains('active')) {
+        const editModal = DOM.editModal || document.getElementById('editModal');
+        if (editModal?.classList.contains('active')) {
             closeEditModal();
         }
         hideToast();
@@ -563,28 +681,34 @@ function updateProfileDisplay() {
     }
     
     const photoData = userData.profilePhoto || userData.photo || null;
-    updatePhotoDisplay(DOM.profilePhoto, DOM.photoPlaceholder, photoData);
+    const profilePhoto = DOM.profilePhoto || document.getElementById('profilePhoto');
+    const photoPlaceholder = DOM.photoPlaceholder || document.getElementById('photoPlaceholder');
+    updatePhotoDisplay(profilePhoto, photoPlaceholder, photoData);
     
-    if (DOM.username) {
-        DOM.username.textContent = userData.name || 'Guest User';
+    const usernameEl = DOM.username || document.getElementById('username');
+    if (usernameEl) {
+        usernameEl.textContent = userData.name || 'Guest User';
     }
     
-    if (DOM.phone) {
+    const phoneEl = DOM.phone || document.getElementById('phone');
+    if (phoneEl) {
         if (userData.phone) {
-            DOM.phone.textContent = `+91 ${formatPhoneNumber(userData.phone)}`;
-            DOM.phone.classList.remove('not-set');
+            phoneEl.textContent = `+91 ${formatPhoneNumber(userData.phone)}`;
+            phoneEl.classList.remove('not-set');
         } else {
-            DOM.phone.textContent = 'Not set';
-            DOM.phone.classList.add('not-set');
+            phoneEl.textContent = 'Not set';
+            phoneEl.classList.add('not-set');
         }
     }
     
-    if (DOM.email) {
-        DOM.email.textContent = userData.email || 'Not set';
-        DOM.email.classList.toggle('not-set', !userData.email);
+    const emailEl = DOM.email || document.getElementById('email');
+    if (emailEl) {
+        emailEl.textContent = userData.email || 'Not set';
+        emailEl.classList.toggle('not-set', !userData.email);
     }
     
-    if (DOM.address) {
+    const addressEl = DOM.address || document.getElementById('address');
+    if (addressEl) {
         let displayAddress = userData.address || '';
         
         if (!displayAddress && (userData.streetAddress || userData.city)) {
@@ -598,27 +722,28 @@ function updateProfileDisplay() {
         
         if (displayAddress) {
             const maxLength = 50;
-            DOM.address.textContent = displayAddress.length > maxLength 
+            addressEl.textContent = displayAddress.length > maxLength 
                 ? displayAddress.substring(0, maxLength) + '...'
                 : displayAddress;
-            DOM.address.classList.remove('not-set');
+            addressEl.classList.remove('not-set');
         } else {
-            DOM.address.textContent = 'Not set';
-            DOM.address.classList.add('not-set');
+            addressEl.textContent = 'Not set';
+            addressEl.classList.add('not-set');
         }
     }
     
-    if (DOM.memberSince) {
+    const memberSinceEl = DOM.memberSince || document.getElementById('memberSince');
+    if (memberSinceEl) {
         const dateStr = userData.memberSince || userData.createdAt;
         if (dateStr) {
             const date = new Date(dateStr);
             if (!isNaN(date.getTime())) {
-                DOM.memberSince.textContent = date.toLocaleDateString('en-IN', {
+                memberSinceEl.textContent = date.toLocaleDateString('en-IN', {
                     month: 'short',
                     year: 'numeric'
                 });
             } else {
-                DOM.memberSince.textContent = 'Recently';
+                memberSinceEl.textContent = 'Recently';
             }
         }
     }
@@ -672,20 +797,25 @@ function loadRecentOrders() {
     
     const recentOrders = sortedOrders.slice(0, 3);
     
-    if (DOM.recentOrders) {
-        DOM.recentOrders.innerHTML = recentOrders
+    const recentOrdersEl = DOM.recentOrders || document.getElementById('recentOrders');
+    if (recentOrdersEl) {
+        recentOrdersEl.innerHTML = recentOrders
             .map(order => createOrderItemHTML(order))
             .join('');
     }
 }
 
 function showNoOrders() {
-    if (DOM.recentOrders) DOM.recentOrders.innerHTML = '';
-    if (DOM.noOrders) DOM.noOrders.classList.remove('hidden');
+    const recentOrdersEl = DOM.recentOrders || document.getElementById('recentOrders');
+    const noOrdersEl = DOM.noOrders || document.getElementById('noOrders');
+    
+    if (recentOrdersEl) recentOrdersEl.innerHTML = '';
+    if (noOrdersEl) noOrdersEl.classList.remove('hidden');
 }
 
 function hideNoOrders() {
-    if (DOM.noOrders) DOM.noOrders.classList.add('hidden');
+    const noOrdersEl = DOM.noOrders || document.getElementById('noOrders');
+    if (noOrdersEl) noOrdersEl.classList.add('hidden');
 }
 
 function createOrderItemHTML(order) {
@@ -809,7 +939,10 @@ async function handleModalPhotoUpload(event) {
         const compressedBase64 = await compressImage(base64);
         
         tempPhotoData = compressedBase64;
-        updatePhotoDisplay(DOM.editProfilePhoto, DOM.editPhotoPlaceholder, compressedBase64);
+        
+        const editProfilePhoto = DOM.editProfilePhoto || document.getElementById('editProfilePhoto');
+        const editPhotoPlaceholder = DOM.editPhotoPlaceholder || document.getElementById('editPhotoPlaceholder');
+        updatePhotoDisplay(editProfilePhoto, editPhotoPlaceholder, compressedBase64);
         
     } catch (error) {
         console.error('Error uploading photo:', error);
@@ -874,10 +1007,14 @@ function compressImage(base64) {
 
 function removePhoto() {
     tempPhotoData = null;
-    updatePhotoDisplay(DOM.editProfilePhoto, DOM.editPhotoPlaceholder, null);
     
-    if (DOM.editPhotoInput) {
-        DOM.editPhotoInput.value = '';
+    const editProfilePhoto = DOM.editProfilePhoto || document.getElementById('editProfilePhoto');
+    const editPhotoPlaceholder = DOM.editPhotoPlaceholder || document.getElementById('editPhotoPlaceholder');
+    updatePhotoDisplay(editProfilePhoto, editPhotoPlaceholder, null);
+    
+    const editPhotoInput = DOM.editPhotoInput || document.getElementById('editPhotoInput');
+    if (editPhotoInput) {
+        editPhotoInput.value = '';
     }
     
     showToast('Photo removed. Click Save to confirm.', 'info');
@@ -895,15 +1032,17 @@ function openEditModal(mode = 'all') {
         'address': 'Update Delivery Address'
     };
     
-    if (DOM.modalTitle) {
-        DOM.modalTitle.textContent = titles[mode] || 'Edit Profile';
+    const modalTitle = DOM.modalTitle || document.getElementById('modalTitle');
+    if (modalTitle) {
+        modalTitle.textContent = titles[mode] || 'Edit Profile';
     }
     
     toggleFormSections(mode);
     populateEditForm();
     
-    if (DOM.editModal) {
-        DOM.editModal.classList.add('active');
+    const editModal = DOM.editModal || document.getElementById('editModal');
+    if (editModal) {
+        editModal.classList.add('active');
         document.body.style.overflow = 'hidden';
         setTimeout(() => focusFirstInput(mode), 100);
     }
@@ -919,7 +1058,7 @@ function toggleFormSections(mode) {
     };
     
     Object.entries(sectionVisibility).forEach(([sectionId, visible]) => {
-        const section = DOM[sectionId];
+        const section = DOM[sectionId] || document.getElementById(sectionId);
         if (section) {
             section.classList.toggle('hidden', !visible);
         }
@@ -928,13 +1067,14 @@ function toggleFormSections(mode) {
 
 function focusFirstInput(mode) {
     const inputMap = {
-        'all': DOM.editName,
-        'phone': DOM.editPhone,
-        'email': DOM.editEmail,
-        'address': DOM.editAddress
+        'all': 'editName',
+        'phone': 'editPhone',
+        'email': 'editEmail',
+        'address': 'editAddress'
     };
     
-    const input = inputMap[mode];
+    const inputId = inputMap[mode];
+    const input = DOM[inputId] || document.getElementById(inputId);
     if (input) {
         input.focus();
         input.select();
@@ -942,13 +1082,15 @@ function focusFirstInput(mode) {
 }
 
 function closeEditModal() {
-    if (DOM.editModal) {
-        DOM.editModal.classList.remove('active');
+    const editModal = DOM.editModal || document.getElementById('editModal');
+    if (editModal) {
+        editModal.classList.remove('active');
         document.body.style.overflow = '';
     }
     
-    if (DOM.editForm) {
-        DOM.editForm.reset();
+    const editForm = DOM.editForm || document.getElementById('editForm');
+    if (editForm) {
+        editForm.reset();
     }
     
     tempPhotoData = null;
@@ -958,16 +1100,19 @@ function closeEditModal() {
 function populateEditForm() {
     if (!userData) return;
     
-    if (DOM.editName) DOM.editName.value = userData.name || '';
-    if (DOM.editPhone) DOM.editPhone.value = userData.phone || '';
-    if (DOM.editEmail) DOM.editEmail.value = userData.email || '';
-    if (DOM.editAddress) DOM.editAddress.value = userData.address || '';
+    const editName = DOM.editName || document.getElementById('editName');
+    const editPhone = DOM.editPhone || document.getElementById('editPhone');
+    const editEmail = DOM.editEmail || document.getElementById('editEmail');
+    const editAddress = DOM.editAddress || document.getElementById('editAddress');
     
-    updatePhotoDisplay(
-        DOM.editProfilePhoto, 
-        DOM.editPhotoPlaceholder, 
-        userData.profilePhoto
-    );
+    if (editName) editName.value = userData.name || '';
+    if (editPhone) editPhone.value = userData.phone || '';
+    if (editEmail) editEmail.value = userData.email || '';
+    if (editAddress) editAddress.value = userData.address || '';
+    
+    const editProfilePhoto = DOM.editProfilePhoto || document.getElementById('editProfilePhoto');
+    const editPhotoPlaceholder = DOM.editPhotoPlaceholder || document.getElementById('editPhotoPlaceholder');
+    updatePhotoDisplay(editProfilePhoto, editPhotoPlaceholder, userData.profilePhoto);
 }
 
 // ==================== FORM SUBMISSION ====================
@@ -980,11 +1125,16 @@ async function handleFormSubmit(event) {
         return;
     }
 
+    const editName = DOM.editName || document.getElementById('editName');
+    const editPhone = DOM.editPhone || document.getElementById('editPhone');
+    const editEmail = DOM.editEmail || document.getElementById('editEmail');
+    const editAddress = DOM.editAddress || document.getElementById('editAddress');
+
     const updatedData = {
-        name: DOM.editName?.value.trim() || '',
-        phone: DOM.editPhone?.value.trim() || '',
-        email: DOM.editEmail?.value.trim() || '',
-        address: DOM.editAddress?.value.trim() || '',
+        name: editName?.value.trim() || '',
+        phone: editPhone?.value.trim() || '',
+        email: editEmail?.value.trim() || '',
+        address: editAddress?.value.trim() || '',
         photo: tempPhotoData || userData.profilePhoto || ''
     };
 
@@ -1085,16 +1235,17 @@ function handleNotificationToggle(event) {
     if (currentUser) {
         db.collection('users').doc(currentUser.uid).update({
             notifications: enabled
-        });
+        }).catch(err => console.error('Error updating notifications:', err));
     }
     
     showToast(enabled ? 'Notifications enabled' : 'Notifications disabled', 'info');
 }
 
 function openNotificationSettings() {
-    if (DOM.notificationToggle) {
-        DOM.notificationToggle.checked = !DOM.notificationToggle.checked;
-        DOM.notificationToggle.dispatchEvent(new Event('change'));
+    const notificationToggle = DOM.notificationToggle || document.getElementById('notificationToggle');
+    if (notificationToggle) {
+        notificationToggle.checked = !notificationToggle.checked;
+        notificationToggle.dispatchEvent(new Event('change'));
     }
 }
 
@@ -1154,9 +1305,13 @@ function handleLogout() {
 
 // ==================== TOAST NOTIFICATIONS ====================
 function showToast(message, type = 'success') {
-    if (!DOM.toast || !DOM.toastMessage || !DOM.toastIcon) return;
+    const toast = DOM.toast || document.getElementById('toast');
+    const toastMessage = DOM.toastMessage || document.getElementById('toastMessage');
+    const toastIcon = DOM.toastIcon || document.getElementById('toastIcon');
     
-    DOM.toastMessage.textContent = message;
+    if (!toast || !toastMessage || !toastIcon) return;
+    
+    toastMessage.textContent = message;
     
     const icons = {
         success: 'fa-check-circle',
@@ -1165,57 +1320,52 @@ function showToast(message, type = 'success') {
         warning: 'fa-exclamation-circle'
     };
     
-    DOM.toastIcon.className = `fas ${icons[type] || icons.success}`;
-    DOM.toast.className = 'toast';
-    DOM.toast.classList.add(type, 'show');
+    toastIcon.className = `fas ${icons[type] || icons.success}`;
+    toast.className = 'toast';
+    toast.classList.add(type, 'show');
     
     clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(hideToast, 4000);
 }
 
 function hideToast() {
-    if (DOM.toast) {
-        DOM.toast.classList.remove('show');
+    const toast = DOM.toast || document.getElementById('toast');
+    if (toast) {
+        toast.classList.remove('show');
     }
     clearTimeout(window.toastTimeout);
 }
 
 // ==================== LOADING OVERLAY ====================
 function showLoading() {
-    if (DOM.loadingOverlay) {
-        DOM.loadingOverlay.classList.remove('hidden');
+    const loadingOverlay = DOM.loadingOverlay || document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
     }
 }
 
 function hideLoading() {
-    if (DOM.loadingOverlay) {
-        DOM.loadingOverlay.classList.add('hidden');
+    const loadingOverlay = DOM.loadingOverlay || document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
     }
 }
 
-// ==================== TEST FUNCTION - ADD THIS FOR DEBUGGING ====================
-window.testSavings = async function(amount = 150) {
+// ==================== DEBUG FUNCTIONS ====================
+window.testSavings = function(amount = 150) {
     console.log('🧪 Testing savings with amount:', amount);
     
-    // Directly update DOM
-    if (DOM.totalSavings) {
-        DOM.totalSavings.textContent = formatCurrency(amount);
-        console.log('✅ DOM updated directly');
+    const element = document.getElementById('totalSavings');
+    console.log('Element found:', element);
+    
+    if (element) {
+        element.textContent = formatCurrency(amount);
+        console.log('✅ DOM updated to:', formatCurrency(amount));
     } else {
         console.error('❌ totalSavings element not found!');
-        
-        // Try to find it another way
-        const element = document.getElementById('totalSavings');
-        console.log('Alternative search:', element);
-        
-        if (element) {
-            element.textContent = formatCurrency(amount);
-            console.log('✅ Found via getElementById');
-        }
     }
 };
 
-// Add demo savings to test
 window.addDemoSavings = async function() {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -1248,6 +1398,15 @@ window.addDemoSavings = async function() {
     }
 };
 
+window.debugProfile = function() {
+    console.log('========== DEBUG INFO ==========');
+    console.log('userData:', userData);
+    console.log('DOM.totalSavings:', DOM.totalSavings);
+    console.log('Direct query:', document.getElementById('totalSavings'));
+    console.log('auth.currentUser:', auth.currentUser);
+    console.log('================================');
+};
+
 // ==================== GLOBAL EXPORTS ====================
 window.openEditModal = openEditModal;
 window.closeEditModal = closeEditModal;
@@ -1261,4 +1420,4 @@ window.hideToast = hideToast;
 
 console.log('%c👤 FreshMart Profile', 'color: #2e7d32; font-size: 16px; font-weight: bold;');
 console.log('%cProfile management ready!', 'color: #666; font-size: 12px;');
-console.log('%c💡 Debug: Run testSavings(100) or addDemoSavings() in console', 'color: #1976d2;');
+console.log('%c💡 Debug: Run debugProfile(), testSavings(100), or addDemoSavings() in console', 'color: #1976d2;');
